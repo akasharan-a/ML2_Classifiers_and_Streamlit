@@ -1,163 +1,193 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+import matplotlib.pyplot as plt
+import seaborn as sns
 
+import joblib
+from sklearn.metrics import confusion_matrix, accuracy_score , recall_score, precision_score, f1_score , matthews_corrcoef ,roc_auc_score
+from sklearn.preprocessing import LabelEncoder
 # --- PAGE CONFIG ---
 st.set_page_config(
-    page_title="Material ML Classifier",
-    page_icon="🤖",
+    page_title="Fabric Quality Classifier",
+    page_icon="👕",
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-# --- CUSTOM CSS FOR MATERIAL DESIGN ---
-st.markdown("""
-    <style>
-    /* Main background */
-    .stApp {
-        background-color: #121212;
-        color: #e0e0e0;
-    }
-    
-    /* Material Card Style */
-    div.stElementContainer {
-        border-radius: 8px;
-    }
-    
-    .block-container {
-        padding-top: 2rem;
-    }
-
-    /* Customizing buttons to look more Material */
-    .stButton>button {
-        width: 100%;
-        border-radius: 4px;
-        height: 3em;
-        background-color: #bb86fc;
-        color: #000;
-        font-weight: bold;
-        border: none;
-        transition: 0.3s;
-        box-shadow: 0 3px 5px rgba(0,0,0,0.3);
-    }
-    
-    .stButton>button:hover {
-        background-color: #9965f4;
-        box-shadow: 0 5px 15px rgba(187, 134, 252, 0.4);
-        color: #000;
-    }
-
-    /* Sidebar styling */
-    section[data-testid="stSidebar"] {
-        background-color: #1e1e1e;
-        border-right: 1px solid #333;
-    }
-
-    /* Input boxes */
-    .stTextInput>div>div>input, .stSelectbox>div>div>select {
-        background-color: #2c2c2c;
-        color: white;
-        border-radius: 4px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+if 'results' not in st.session_state:
+    st.session_state.results = None
 
 # --- APP HEADER ---
-st.title("ML Classifier")
+st.title("👕 Fabric Quality Classifier",text_alignment='center')
 st.markdown("---")
 
+df_test= None
 # --- SIDEBAR CONTROLS ---
 with st.sidebar:
-    st.header("⚙️ Settings")
-    uploaded_file = st.file_uploader("Upload CSV Data", type=["csv"])
-    
-    st.subheader("Model Selection")
+    st.header("📄 Data Source")
+    data_option = st.radio("Choose Data:", ["Upload CSV","Use Sample Data"])
+    sample_data_path = "data/Industrial Fabric Quality Inspection Dataset - Test.csv"
+    with open(sample_data_path, "rb") as f:
+            st.download_button("🔽Download Sample Data", f, file_name="Industrial Fabric Quality Inspection Dataset - Test.csv",use_container_width=True)
+
+    if data_option == "Use Sample Data":
+        df_test = pd.read_csv(sample_data_path)
+
+    else:
+        uploaded_file = st.file_uploader("Upload CSV", type="csv")
+        if uploaded_file:
+            df_test = pd.read_csv(uploaded_file)
+        else:
+            st.info("Please upload a CSV file.")
+            # st.stop()
+
+    st.header("✨ Model Selection")
     model_type = st.selectbox(
-        "Choose Algorithm", 
-        ("Random Forest", "Logistic Regression", "SVM")
+        "Choose Algorithm",
+        (
+            "Logistic Regression",
+            "Decision Tree",
+            "K-Nearest Neighbors",
+            "Random Forest",
+        ),
     )
     
-    test_size = st.slider("Test Set Size (%)", 10, 50, 20)
-    random_state = st.number_input("Random Seed", value=42)
+    st.divider()
+    # THE SIDEBAR PREDICTION BUTTON
+    evaluate = st.button("👉 Evaluate",use_container_width=True,help='Click to run evaluation on the selected model and dataset.',type='primary')
+    
+    # evaluate = st.button("👉Evaluate",use_container_width=True,help='Click to run evaluation on the selected model and dataset.')
+
+    # test_size = st.slider("Test Set Size (%)", 10, 50, 20)
+    # random_state = st.number_input("Random Seed", value=42)
 
 # --- MAIN CONTENT ---
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    
+if df_test is not None:
+
     # 1. DATA PREVIEW
     with st.container():
-        st.subheader("📊 Data Preview")
-        st.dataframe(df.head(), use_container_width=True)
+        st.subheader("📊 Data Preview (100 rows)")
+        st.dataframe(df_test.head(100), use_container_width=True)
+
+        # col1, col2 = st.columns(2)
+        # with col1:
+        #     target_col = st.selectbox("Select Target Variable (Y)", df_test.columns)
+        # with col2:
+        #     feature_cols = st.multiselect("Select Features (X)", [c for c in df_test.columns if c != target_col], default=[c for c in df_test.columns if c != target_col])
+    
+    if  evaluate:
+        # Model Selection
+        st.header(model_type,text_alignment="center")
+
+        match model_type:
+            case "Logistic Regression":
+                filename: str = "LogisticRegression"
+            case "Decision Tree":
+                filename: str = "DecisionTreeClassifier"
+            case "K-Nearest Neighbors":
+                filename: str = "KNeighborsClassifier"
+            case "Random Forest":
+                filename: str = "RandomForestClassifier"
+
+        model_pipeline = joblib.load(f"model_files/{filename}.pkl")
+
+        try:
+            y_pred = model_pipeline.predict(df_test)
+            y_score = model_pipeline.predict_proba(df_test)
+            y_pred_df = pd.DataFrame(y_pred, columns=["Predicted_Fabric_Quality"])
+            st.markdown("---")
+            st.subheader("✅ Predictions")
+            with st.expander("View Predictions"):
+                st.dataframe(y_pred_df, width="content")
+        except Exception as e:
+            st.error(f"Prediction failed: {e}")
+    #     # 2. METRICS
+         
+        st.markdown("---")
+        st.subheader("📈 Performance Metrics")
+        # Accuracy AUC Precision Recall F1 MCC
+        y_true = df_test['fabric_quality']
+        acc = accuracy_score(y_true, y_pred)
+        prec = precision_score(y_true, y_pred,average='weighted')
+        rec = recall_score(y_true, y_pred,average='weighted')
+        f1 = f1_score(y_true, y_pred,average='weighted')
         
-        col1, col2 = st.columns(2)
-        with col1:
-            target_col = st.selectbox("Select Target Variable (Y)", df.columns)
-        with col2:
-            feature_cols = st.multiselect("Select Features (X)", [c for c in df.columns if c != target_col], default=[c for c in df.columns if c != target_col])
+        le = LabelEncoder()
+        y_true_encoded = le.fit_transform(y_true)
+        y_pred_encoded = le.transform(y_pred)
+        
+        mcc = matthews_corrcoef(y_true_encoded, y_pred_encoded)
+        auc = roc_auc_score(y_true_encoded, y_score,multi_class='ovr',average='weighted')
+        
+        a, b, c = st.columns(3)
+        a.metric("Accuracy", f"{acc:.3}",border=True)
+        b.metric("Precision", f"{prec:.3}",border=True)
+        c.metric("Recall", f"{rec:.3}",border=True)
+        d ,e,f = st.columns(3)
+        d.metric("F1-Score", f"{f1:.3}",border=True)                  
+        e.metric("MCC", f"{mcc:.3}",border=True)
+        f.metric("AUC", f"{auc:.3}",border=True)
+    
+    # Create the confusion matrix
 
-    if st.button("🚀 Train & Evaluate"):
-        if not feature_cols:
-            st.error("Please select at least one feature.")
-        else:
-            # Preprocessing (Basic dropna for demo)
-            data = df[feature_cols + [target_col]].dropna()
-            X = data[feature_cols]
-            y = data[target_col]
-            
-            # Simple encoding for strings if necessary
-            X = pd.get_dummies(X)
-            
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=test_size/100, random_state=random_state
-            )
+        labels = ['High','Medium','Low']#np.unique(y_true)
+        cm = confusion_matrix(y_true, y_pred, labels=labels)
 
-            # Model Selection
-            if model_type == "Random Forest":
-                model = RandomForestClassifier(n_estimators=100)
-            elif model_type == "Logistic Regression":
-                model = LogisticRegression(max_iter=1000)
+        # Plotting with Seaborn
+        fig, ax = plt.subplots(figsize=(5, 4))
+        fig.patch.set_alpha(0.0)
+        ax.set_facecolor("none")
+        sns.heatmap(
+            cm, 
+            annot=True, 
+            linewidths= 0.5,
+            fmt='d', 
+            cmap='Blues', 
+            xticklabels=labels, 
+            yticklabels=labels,
+            ax=ax
+        )
+        plt.xlabel('Predicted Label')
+        plt.ylabel('True Label')
+        # plt.title(f'Confusion Matrix: {model_type}')
+        ax.tick_params(colors='gray') 
+        ax.xaxis.label.set_color('gray')
+        ax.yaxis.label.set_color('gray')
+        ax.title.set_color('gray')
+        
+        st.subheader("🖼️ Confusion Matrix")
+        st.pyplot(fig, transparent=True)
+    else:
+        st.info(" Click the Evaluate button in the sidebar to run model evaluation.")
+    #     # 3. VISUALIZATIONS
+    #     st.markdown("---")
+    #     v_col1, v_col2 = st.columns(2)
 
-            model.fit(X_train, y_train)
-            y_pred = model.predict(X_test)
+    #     with v_col1:
+    #         st.write("**Confusion Matrix**")
+    #         cm = confusion_matrix(y_test, y_pred)
+    #         labels = sorted(y.unique())
 
-            # 2. METRICS
-            st.markdown("---")
-            st.subheader("📈 Performance Metrics")
-            m_col1, m_col2, m_col3 = st.columns(3)
-            
-            acc = accuracy_score(y_test, y_pred)
-            m_col1.metric("Accuracy", f"{acc:.2%}")
-            m_col2.metric("Features Used", len(feature_cols))
-            m_col3.metric("Samples", len(data))
-
-            # 3. VISUALIZATIONS
-            st.markdown("---")
-            v_col1, v_col2 = st.columns(2)
-            
-            with v_col1:
-                st.write("**Confusion Matrix**")
-                cm = confusion_matrix(y_test, y_pred)
-                labels = sorted(y.unique())
-
-            with v_col2:
-                st.write("**Classification Report**")
-                report = classification_report(y_test, y_pred, output_dict=True)
-                report_df = pd.DataFrame(report).transpose()
-                st.dataframe(report_df.style.background_gradient(cmap='Blues'), use_container_width=True)
+    #     with v_col2:
+    #         st.write("**Classification Report**")
+    #         report = classification_report(y_test, y_pred, output_dict=True)
+    #         report_df = pd.DataFrame(report).transpose()
+    #         st.dataframe(report_df.style.background_gradient(cmap='Blues'), use_container_width=True)
 
 else:
-    st.info("👋 Welcome! Please upload a CSV file in the sidebar to get started.")
-    
+    st.info(" Please upload a CSV file in the sidebar to get started or click Use Sample Data.")
+
     # Placeholder Sample Data Info
-    st.markdown("""
+    st.markdown(
+        """
     ### Quick Start Guide
-    1. **Upload**: Drag and drop your dataset.
-    2. **Configure**: Select your features and target class.
-    3. **Train**: Click the 'Train' button to see results instantly.
+    1. **Upload**: Drag and drop your dataset (Use download button in sidebar to get sample data). 
+        
+        or 
+        
+       **Click** 'Use Sample Data' to load sample dataset.
+    2. **Select Model**: Choose a classification algorithm from the sidebar.
+    3. **Evaluate**: Click the 'Evaluate' button to see predictions and metrics.
     
-    *Designed with Material principles for a clean, accessible ML experience.*
-    """)
+    """
+    )

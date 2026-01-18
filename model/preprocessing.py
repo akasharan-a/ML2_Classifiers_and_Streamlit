@@ -11,7 +11,7 @@ cont_features = ['thread_count', 'gsm', 'tensile_strength', 'shrinkage_percent',
        'elongation_percent', 'moisture_absorption','machine_temperature',
        'humidity_level' ]
 ##Categorical features
-cat_features = [ 'fabric_type','weave_type', 'finish_type', 'production_method','inspection_notes']
+cat_features = [ 'fabric_type','weave_type', 'finish_type', 'production_method', 'inspection_notes']
 ##Target variable
 target = 'fabric_quality'
 
