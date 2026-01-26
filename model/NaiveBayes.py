@@ -1,0 +1,38 @@
+import pandas as pd
+from preprocessing import preprocessing_pipeline ,encode_target, drop_duplicate_rows
+from sklearn.pipeline import Pipeline
+import joblib
+
+from sklearn.naive_bayes import MultinomialNB
+##Loading Data
+df_train = pd.read_csv('data/Industrial Fabric Quality Inspection Dataset - Train.csv')
+
+##Preparing Data
+df_train = drop_duplicate_rows(df_train)
+
+y='fabric_quality'
+
+X_train , y_train = df_train.drop(y,axis=1) , encode_target(df_train[y])
+print(f"Training size : {X_train.shape[0]}\nFeatures : {X_train.shape[1]}")
+
+##Model Pipeline
+algo = 'NaiveBayes'
+preprocessor = preprocessing_pipeline(scale=False)
+model = MultinomialNB()
+
+model_pipeline = Pipeline(steps=[
+    ("preprocessor", preprocessor),
+    ("classifier", model)
+])
+
+##Training and Saving Model
+try:
+    model_pipeline.fit(X_train,y_train)
+    print(f"{algo} trained successfully - ✓")
+    try:
+        joblib.dump(model_pipeline, f'model_files/{algo}.pkl')
+        print("Model saved - ✓")
+    except:
+        print("Failed to save the model - ✕")
+except Exception as e:
+    print(f"Failed to train {algo} - ✕ -{e}")

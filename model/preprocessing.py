@@ -1,8 +1,9 @@
+import numpy as np
 from sklearn import set_config
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler, OneHotEncoder 
 set_config(transform_output="pandas")
 
 ##Continuous feats
@@ -14,6 +15,8 @@ cont_features = ['thread_count', 'gsm', 'tensile_strength', 'shrinkage_percent',
 cat_features = [ 'fabric_type','weave_type', 'finish_type', 'production_method', 'inspection_notes']
 ##Target variable
 target = 'fabric_quality'
+##Target categories
+target_categories = {'Low':0, 'Medium':1, 'High':2}
 
 def drop_duplicate_rows(df):
     return df.drop_duplicates()
@@ -41,3 +44,15 @@ def preprocessing_pipeline(scale=True):
     )
     
     return transformer 
+
+label_to_num = np.vectorize(target_categories.get)
+swapped = dict(zip(target_categories.values(), target_categories.keys()))
+num_to_label = np.vectorize(swapped.get)
+
+def encode_target(y):
+    y_encoded = label_to_num(y)
+    return y_encoded
+
+def decode_target(y_encoded):
+    y_decoded = num_to_label(y_encoded)
+    return y_decoded

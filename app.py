@@ -6,7 +6,7 @@ import seaborn as sns
 
 import joblib
 from sklearn.metrics import confusion_matrix, accuracy_score , recall_score, precision_score, f1_score , matthews_corrcoef ,roc_auc_score
-from sklearn.preprocessing import LabelEncoder
+from model.preprocessing import decode_target ,encode_target,target_categories
 # --- PAGE CONFIG ---
 st.set_page_config(
     page_title="Fabric Quality Classifier",
@@ -22,6 +22,14 @@ st.title("👕 Fabric Quality Classifier",text_alignment='center')
 st.markdown("---")
 
 df_test= None
+model_map = {
+            "Logistic Regression": "LogisticRegression",
+            "Decision Tree": "DecisionTreeClassifier",
+            "KNN": "KNeighborsClassifier",
+            "Random Forest": "RandomForestClassifier",
+            "Naive Bayes": "NaiveBayes",
+            "XGBoost": "XGBClassifier"}
+
 # --- SIDEBAR CONTROLS ---
 with st.sidebar:
     st.header("📄 Data Source")
@@ -44,23 +52,13 @@ with st.sidebar:
     st.header("✨ Model Selection")
     model_type = st.selectbox(
         "Choose Algorithm",
-        (
-            "Logistic Regression",
-            "Decision Tree",
-            "K-Nearest Neighbors",
-            "Random Forest",
-        ),
+        tuple(model_map.keys()),
     )
     
     st.divider()
     # THE SIDEBAR PREDICTION BUTTON
     evaluate = st.button("👉 Evaluate",use_container_width=True,help='Click to run evaluation on the selected model and dataset.',type='primary')
     
-    # evaluate = st.button("👉Evaluate",use_container_width=True,help='Click to run evaluation on the selected model and dataset.')
-
-    # test_size = st.slider("Test Set Size (%)", 10, 50, 20)
-    # random_state = st.number_input("Random Seed", value=42)
-
 # --- MAIN CONTENT ---
 if df_test is not None:
 
@@ -78,23 +76,14 @@ if df_test is not None:
     if  evaluate:
         # Model Selection
         st.header(model_type,text_alignment="center")
-
-        match model_type:
-            case "Logistic Regression":
-                filename: str = "LogisticRegression"
-            case "Decision Tree":
-                filename: str = "DecisionTreeClassifier"
-            case "K-Nearest Neighbors":
-                filename: str = "KNeighborsClassifier"
-            case "Random Forest":
-                filename: str = "RandomForestClassifier"
-
+                
+        filename = model_map[model_type]
         model_pipeline = joblib.load(f"model_files/{filename}.pkl")
 
         try:
             y_pred = model_pipeline.predict(df_test)
             y_score = model_pipeline.predict_proba(df_test)
-            y_pred_df = pd.DataFrame(y_pred, columns=["Predicted_Fabric_Quality"])
+            y_pred_df = pd.DataFrame(decode_target(y_pred), columns=["Predicted_Fabric_Quality"])
             st.markdown("---")
             st.subheader("✅ Predictions")
             with st.expander("View Predictions"):
@@ -106,18 +95,14 @@ if df_test is not None:
         st.markdown("---")
         st.subheader("📈 Performance Metrics")
         # Accuracy AUC Precision Recall F1 MCC
-        y_true = df_test['fabric_quality']
+        y_true = encode_target(df_test['fabric_quality'])
         acc = accuracy_score(y_true, y_pred)
         prec = precision_score(y_true, y_pred,average='weighted')
         rec = recall_score(y_true, y_pred,average='weighted')
         f1 = f1_score(y_true, y_pred,average='weighted')
         
-        le = LabelEncoder()
-        y_true_encoded = le.fit_transform(y_true)
-        y_pred_encoded = le.transform(y_pred)
-        
-        mcc = matthews_corrcoef(y_true_encoded, y_pred_encoded)
-        auc = roc_auc_score(y_true_encoded, y_score,multi_class='ovr',average='weighted')
+        mcc = matthews_corrcoef(y_true, y_pred)
+        auc = roc_auc_score(y_true, y_score,multi_class='ovr',average='weighted')
         
         a, b, c = st.columns(3)
         a.metric("Accuracy", f"{acc:.3}",border=True)
@@ -130,8 +115,8 @@ if df_test is not None:
     
     # Create the confusion matrix
 
-        labels = ['High','Medium','Low']#np.unique(y_true)
-        cm = confusion_matrix(y_true, y_pred, labels=labels)
+        labels = list(target_categories.keys())
+        cm = confusion_matrix(decode_target(y_true), decode_target(y_pred) ,labels=labels)
 
         # Plotting with Seaborn
         fig, ax = plt.subplots(figsize=(5, 4))
@@ -142,13 +127,14 @@ if df_test is not None:
             annot=True, 
             linewidths= 0.5,
             fmt='d', 
-            cmap='Blues', 
+            cmap='rocket', 
             xticklabels=labels, 
             yticklabels=labels,
+            cbar=False,
             ax=ax
         )
-        plt.xlabel('Predicted Label')
-        plt.ylabel('True Label')
+        fig.supxlabel('Predicted Label',color='gray')
+        fig.supylabel('True Label', color='gray')
         # plt.title(f'Confusion Matrix: {model_type}')
         ax.tick_params(colors='gray') 
         ax.xaxis.label.set_color('gray')
@@ -156,7 +142,7 @@ if df_test is not None:
         ax.title.set_color('gray')
         
         st.subheader("🖼️ Confusion Matrix")
-        st.pyplot(fig, transparent=True)
+        st.pyplot(fig, transparent=True,width=700)
     else:
         st.info(" Click the Evaluate button in the sidebar to run model evaluation.")
     #     # 3. VISUALIZATIONS
