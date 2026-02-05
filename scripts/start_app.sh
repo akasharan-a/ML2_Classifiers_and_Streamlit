@@ -1,3 +1,3 @@
 #!/bin/bash
-echo "Starting the Streamlit App..."
+echo "Starting App..."
 streamlit run app.py

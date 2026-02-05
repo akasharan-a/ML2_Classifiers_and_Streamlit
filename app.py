@@ -7,7 +7,7 @@ import seaborn as sns
 import joblib
 from sklearn.metrics import confusion_matrix, accuracy_score , recall_score, precision_score, f1_score , matthews_corrcoef ,roc_auc_score
 from model.preprocessing import decode_target ,encode_target,target_categories
-# --- PAGE CONFIG ---
+
 st.set_page_config(
     page_title="Fabric Quality Classifier",
     page_icon="👕",
@@ -17,7 +17,6 @@ st.set_page_config(
 if 'results' not in st.session_state:
     st.session_state.results = None
 
-# --- APP HEADER ---
 st.title("👕 Fabric Quality Classifier",text_alignment='center')
 st.markdown("---")
 
@@ -30,7 +29,6 @@ model_map = {
             "Naive Bayes": "NaiveBayes",
             "XGBoost": "XGBClassifier"}
 
-# --- SIDEBAR CONTROLS ---
 with st.sidebar:
     st.header("📄 Data Source")
     data_option = st.radio("Choose Data:", ["Upload CSV","Use Sample Data"])
@@ -47,7 +45,6 @@ with st.sidebar:
             df_test = pd.read_csv(uploaded_file)
         else:
             st.info("Please upload a CSV file.")
-            # st.stop()
 
     st.header("✨ Model Selection")
     model_type = st.selectbox(
@@ -56,25 +53,15 @@ with st.sidebar:
     )
     
     st.divider()
-    # THE SIDEBAR PREDICTION BUTTON
     evaluate = st.button("👉 Evaluate",use_container_width=True,help='Click to run evaluation on the selected model and dataset.',type='primary')
     
-# --- MAIN CONTENT ---
 if df_test is not None:
 
-    # 1. DATA PREVIEW
     with st.container():
         st.subheader("📊 Data Preview (100 rows)")
-        st.dataframe(df_test.head(100), use_container_width=True)
-
-        # col1, col2 = st.columns(2)
-        # with col1:
-        #     target_col = st.selectbox("Select Target Variable (Y)", df_test.columns)
-        # with col2:
-        #     feature_cols = st.multiselect("Select Features (X)", [c for c in df_test.columns if c != target_col], default=[c for c in df_test.columns if c != target_col])
-    
+        st.dataframe(df_test.head(100), use_container_width=True)    
     if  evaluate:
-        # Model Selection
+    #Model
         st.header(model_type,text_alignment="center")
                 
         filename = model_map[model_type]
@@ -90,11 +77,11 @@ if df_test is not None:
                 st.dataframe(y_pred_df, width="content")
         except Exception as e:
             st.error(f"Prediction failed: {e}")
-    #     # 2. METRICS
+    #Metrics
          
         st.markdown("---")
         st.subheader("📈 Performance Metrics")
-        # Accuracy AUC Precision Recall F1 MCC
+
         y_true = encode_target(df_test['fabric_quality'])
         acc = accuracy_score(y_true, y_pred)
         prec = precision_score(y_true, y_pred,average='weighted')
@@ -112,13 +99,10 @@ if df_test is not None:
         d.metric("F1-Score", f"{f1:.3}",border=True)                  
         e.metric("MCC", f"{mcc:.3}",border=True)
         f.metric("AUC", f"{auc:.3}",border=True)
-    
-    # Create the confusion matrix
-
         labels = list(target_categories.keys())
         cm = confusion_matrix(decode_target(y_true), decode_target(y_pred) ,labels=labels)
 
-        # Plotting with Seaborn
+
         fig, ax = plt.subplots(figsize=(5, 4))
         fig.patch.set_alpha(0.0)
         ax.set_facecolor("none")
@@ -135,7 +119,6 @@ if df_test is not None:
         )
         fig.supxlabel('Predicted Label',color='gray')
         fig.supylabel('True Label', color='gray')
-        # plt.title(f'Confusion Matrix: {model_type}')
         ax.tick_params(colors='gray') 
         ax.xaxis.label.set_color('gray')
         ax.yaxis.label.set_color('gray')
@@ -145,25 +128,10 @@ if df_test is not None:
         st.pyplot(fig, transparent=True,width=700)
     else:
         st.info(" Click the Evaluate button in the sidebar to run model evaluation.")
-    #     # 3. VISUALIZATIONS
-    #     st.markdown("---")
-    #     v_col1, v_col2 = st.columns(2)
-
-    #     with v_col1:
-    #         st.write("**Confusion Matrix**")
-    #         cm = confusion_matrix(y_test, y_pred)
-    #         labels = sorted(y.unique())
-
-    #     with v_col2:
-    #         st.write("**Classification Report**")
-    #         report = classification_report(y_test, y_pred, output_dict=True)
-    #         report_df = pd.DataFrame(report).transpose()
-    #         st.dataframe(report_df.style.background_gradient(cmap='Blues'), use_container_width=True)
 
 else:
     st.info(" Please upload a CSV file in the sidebar to get started or click Use Sample Data.")
 
-    # Placeholder Sample Data Info
     st.markdown(
         """
     ### Quick Start Guide
